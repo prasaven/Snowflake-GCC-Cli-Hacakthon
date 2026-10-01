@@ -1,0 +1,1034 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="snowflake-source" content="cortex-agent-authored" />
+<title>Supply Chain Intelligence Platform - Hackathon Submission</title>
+<style>
+  :root { color-scheme: light dark; }
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, system-ui, "Segoe UI", Roboto, sans-serif;
+    max-width: 1100px; width: 100%; margin: 0 auto;
+    padding: clamp(16px, 4vw, 28px);
+    color: light-dark(#1f2937, #e5e7eb);
+    background: light-dark(#ffffff, #0f172a);
+    line-height: 1.55;
+  }
+  h1 { font-size: clamp(1.5rem, 4vw, 2.1rem); margin-bottom: 4px; color: light-dark(#0f172a, #f1f5f9); }
+  h2 { color: light-dark(#0f172a, #f1f5f9); margin-top: 28px; border-bottom: 1px solid light-dark(#e5e7eb,#334155); padding-bottom: 6px; }
+  h3 { color: light-dark(#1e293b, #cbd5e1); margin-top: 20px; }
+  p, li { font-size: 15px; }
+  a { color: light-dark(#2563eb, #60a5fa); }
+  .subtitle { color: light-dark(#64748b, #94a3b8); margin-top: 0; margin-bottom: 20px; }
+  .banner {
+    background: linear-gradient(135deg, #0369a1 0%, #7c3aed 100%);
+    color: white; padding: 20px 24px; border-radius: 10px; margin-bottom: 20px;
+  }
+  .banner h1 { color: white; margin: 0 0 6px; }
+  .banner p { margin: 0; opacity: 0.95; }
+  .tabs {
+    display: flex; flex-wrap: wrap; gap: 4px;
+    border-bottom: 2px solid light-dark(#e5e7eb, #334155);
+    margin-bottom: 20px;
+    position: sticky; top: 0;
+    background: light-dark(#ffffff, #0f172a);
+    z-index: 10; padding-top: 8px;
+  }
+  .tab-btn {
+    padding: 10px 16px; border: none; background: transparent;
+    color: light-dark(#475569, #94a3b8); cursor: pointer;
+    font-size: 14px; font-weight: 500; border-radius: 6px 6px 0 0;
+    border-bottom: 3px solid transparent; margin-bottom: -2px;
+  }
+  .tab-btn:hover { background: light-dark(#f1f5f9, #1e293b); }
+  .tab-btn.active {
+    color: light-dark(#2563eb, #60a5fa);
+    border-bottom-color: light-dark(#2563eb, #60a5fa);
+    background: light-dark(#f8fafc, #1e293b);
+  }
+  .tab-panel { display: none; animation: fadeIn 0.25s; }
+  .tab-panel.active { display: block; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+  .card {
+    background: light-dark(#f8fafc, #1e293b);
+    border: 1px solid light-dark(#e5e7eb, #334155);
+    border-radius: 8px; padding: 16px 18px; margin: 14px 0;
+  }
+  .grid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 14px; margin: 14px 0;
+  }
+  .metric {
+    background: light-dark(#f0f9ff, #1e293b);
+    border-left: 4px solid #0284c7;
+    border-radius: 6px; padding: 14px 16px;
+  }
+  .metric .val { font-size: 1.4rem; font-weight: 700; color: light-dark(#0369a1, #7dd3fc); }
+  .metric .lbl { font-size: 13px; color: light-dark(#64748b, #94a3b8); margin-top: 4px; }
+  .table-wrap { overflow-x: auto; margin: 14px 0; }
+  table { border-collapse: collapse; width: 100%; font-size: 14px; }
+  th, td { border: 1px solid light-dark(#d1d5db, #374151); padding: 8px 12px; text-align: left; vertical-align: top; }
+  th { background: light-dark(#f3f4f6, #1f2937); font-weight: 600; }
+  pre {
+    background: light-dark(#0f172a, #020617);
+    color: #e2e8f0; padding: 14px; border-radius: 8px;
+    overflow-x: auto; font-size: 13px; line-height: 1.5;
+  }
+  code { font-family: "SF Mono", Consolas, monospace; }
+  :not(pre) > code {
+    background: light-dark(#f1f5f9, #334155);
+    color: light-dark(#be123c, #fda4af);
+    padding: 2px 6px; border-radius: 4px; font-size: 13px;
+  }
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 12px;
+    font-size: 12px; font-weight: 500; margin: 2px;
+  }
+  .badge-blue { background: #dbeafe; color: #1e40af; }
+  .badge-green { background: #dcfce7; color: #166534; }
+  .badge-purple { background: #ede9fe; color: #6b21a8; }
+  .badge-orange { background: #ffedd5; color: #9a3412; }
+  .callout {
+    border-left: 4px solid #f59e0b;
+    background: light-dark(#fffbeb, #422006);
+    padding: 12px 16px; border-radius: 6px; margin: 14px 0;
+  }
+  .scenario {
+    background: light-dark(#f8fafc, #1e293b);
+    border: 1px solid light-dark(#e5e7eb, #334155);
+    border-left: 4px solid #7c3aed;
+    border-radius: 6px; padding: 14px 18px; margin: 14px 0;
+  }
+  .scenario h4 { margin: 0 0 8px; color: light-dark(#5b21b6, #c4b5fd); }
+  .mermaid { background: light-dark(#ffffff, #0f172a); padding: 12px; border-radius: 8px; }
+  /* Box diagram styles */
+  .diagram { background: light-dark(#f8fafc, #0b1220); border: 1px solid light-dark(#e5e7eb, #334155); border-radius: 10px; padding: 18px; margin: 14px 0; }
+  .layer { border: 1px solid light-dark(#cbd5e1, #475569); border-radius: 8px; padding: 12px; margin: 10px 0; background: light-dark(#ffffff, #1e293b); }
+  .layer-title { font-weight: 700; color: light-dark(#0369a1, #7dd3fc); font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }
+  .nodes { display: flex; flex-wrap: wrap; gap: 6px; }
+  .node { background: light-dark(#e0f2fe, #0c4a6e); color: light-dark(#075985, #e0f2fe); padding: 6px 10px; border-radius: 6px; font-size: 12px; font-family: "SF Mono", Consolas, monospace; border: 1px solid light-dark(#7dd3fc, #075985); }
+  .node.gov { background: light-dark(#fef3c7, #78350f); color: light-dark(#92400e, #fef3c7); border-color: light-dark(#fbbf24, #92400e); }
+  .node.ai { background: light-dark(#ede9fe, #4c1d95); color: light-dark(#5b21b6, #ddd6fe); border-color: light-dark(#a78bfa, #5b21b6); }
+  .node.app { background: light-dark(#dcfce7, #14532d); color: light-dark(#166534, #bbf7d0); border-color: light-dark(#4ade80, #166534); }
+  .arrow-down { text-align: center; color: light-dark(#94a3b8, #64748b); font-size: 20px; margin: 4px 0; }
+  .flow-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 8px 0; }
+  .flow-arrow { color: light-dark(#94a3b8, #64748b); font-size: 18px; font-weight: bold; }
+  .agent-hub { display: grid; grid-template-columns: 1fr; gap: 10px; }
+  .agent-center { text-align: center; background: light-dark(#7c3aed, #5b21b6); color: white; padding: 10px 16px; border-radius: 8px; font-weight: 600; }
+  .agent-tools { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 8px; }
+  .seq-step { display: flex; gap: 12px; padding: 8px 12px; border-left: 3px solid light-dark(#7c3aed, #a78bfa); background: light-dark(#faf5ff, #1e1b3a); margin: 6px 0; border-radius: 0 6px 6px 0; }
+  .seq-num { font-weight: 700; color: light-dark(#7c3aed, #c4b5fd); min-width: 24px; }
+  .loop { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; justify-content: center; }
+  .loop-step { background: light-dark(#f0f9ff, #0c4a6e); color: light-dark(#075985, #e0f2fe); padding: 10px 14px; border-radius: 8px; font-size: 13px; border: 1px solid light-dark(#7dd3fc, #075985); }
+  img, svg { max-width: 100%; height: auto; }
+</style>
+</head>
+<body>
+
+  <div class="banner">
+  <h1>Supply Chain Intelligence Platform</h1>
+  <p>Governed Ontology &middot; Canonical Metrics &middot; AI-Powered Insights &middot; Snowflake Hackathon Submission</p>
+  <p style="margin-top:12px;">
+    <a href="streamlit_app.py" style="color:#fff; text-decoration:underline; margin-right:14px;" download>Download streamlit_app.py</a>
+    <a href="sql/" style="color:#fff; text-decoration:underline; margin-right:14px;">SQL scripts folder</a>
+    <a href="docs/" style="color:#fff; text-decoration:underline; margin-right:14px;">Docs folder</a>
+    <a href="README.md" style="color:#fff; text-decoration:underline;">README</a>
+  </p>
+</div>
+
+<div class="tabs" role="tablist">
+  <button class="tab-btn active" data-tab="overview">Overview</button>
+  <button class="tab-btn" data-tab="architecture">Architecture</button>
+  <button class="tab-btn" data-tab="features">Features</button>
+  <button class="tab-btn" data-tab="ai">AI &amp; Agent</button>
+  <button class="tab-btn" data-tab="governance">Governance &amp; Quality</button>
+  <button class="tab-btn" data-tab="code">Code</button>
+  <button class="tab-btn" data-tab="coco">CoCo CLI Scenarios</button>
+  <button class="tab-btn" data-tab="e2e">End-to-End Flow</button>
+</div>
+
+<!-- ============ OVERVIEW ============ -->
+<section id="overview" class="tab-panel active">
+  <h2>Project Overview</h2>
+  <p>
+    <strong>Supply Chain Intelligence Platform</strong> is a Snowflake-native admin
+    console that unifies operational supply-chain data behind a <em>governed ontology</em>
+    and exposes AI-powered insights through a Streamlit-in-Snowflake app plus a Cortex Agent.
+    It answers: <em>Where are we losing on-time delivery? Which suppliers are risky? What
+    will fail next?</em> &mdash; all while enforcing masking, row-level access, and
+    data-quality guardrails.
+  </p>
+
+  <div class="grid">
+    <div class="metric"><div class="val">7</div><div class="lbl">Streamlit pages</div></div>
+    <div class="metric"><div class="val">4</div><div class="lbl">Canonical KPIs</div></div>
+    <div class="metric"><div class="val">8</div><div class="lbl">Agent tools wired</div></div>
+    <div class="metric"><div class="val">3</div><div class="lbl">DMFs / policies layers</div></div>
+  </div>
+
+  <h3>What makes it interesting</h3>
+  <ul>
+    <li><strong>Ontology-first design</strong> - metrics (OTD, Fill Rate, DOI, Freight $/unit) are defined once in a semantic view, not scattered across dashboards.</li>
+    <li><strong>Cortex Agent orchestration</strong> - one agent, multiple tools (Analyst, Search, custom LLM &amp; ML procs) with an evaluation dataset for accuracy tracking.</li>
+    <li><strong>Governance baked in</strong> - masking policies, row-access policies, and object tags applied to every fact table.</li>
+    <li><strong>Live data quality</strong> - DMFs auto-fire on data change; violations surfaced in the UI.</li>
+    <li><strong>Version-controlled ontology</strong> - a changelog table tracks breaking vs non-breaking changes to metrics/dimensions.</li>
+  </ul>
+
+  <h3>Project Files</h3>
+  <div class="card">
+    <p>All source files in the repo. Links are relative &mdash; they work locally, in a zip, and on GitHub (repo view or GitHub Pages).</p>
+
+    <h4 style="margin-top:14px; color: light-dark(#0369a1, #7dd3fc);">Streamlit App</h4>
+    <ul>
+      <li><a href="streamlit_app.py" download>streamlit_app.py</a> &mdash; 7-page Streamlit-in-Snowflake admin console (full source also embedded in the <strong>Code</strong> tab)</li>
+    </ul>
+
+    <h4 style="margin-top:14px; color: light-dark(#0369a1, #7dd3fc);">SQL - Platform Build Scripts (run in order)</h4>
+    <div class="table-wrap">
+    <table>
+      <thead><tr><th>#</th><th>File</th><th>What it does</th></tr></thead>
+      <tbody>
+        <tr><td>01</td><td><a href="sql/01_infrastructure.sql" download>sql/01_infrastructure.sql</a></td><td>Databases, schemas, warehouses, roles</td></tr>
+        <tr><td>02</td><td><a href="sql/02_synthetic_data.sql" download>sql/02_synthetic_data.sql</a></td><td>Generate synthetic supply-chain facts &amp; dims</td></tr>
+        <tr><td>03</td><td><a href="sql/03_unstructured_data.sql" download>sql/03_unstructured_data.sql</a></td><td>Load SUPPLY_CHAIN_KNOWLEDGE corpus</td></tr>
+        <tr><td>04</td><td><a href="sql/04_cortex_search.sql" download>sql/04_cortex_search.sql</a></td><td>Cortex Search service over the corpus</td></tr>
+        <tr><td>05</td><td><a href="sql/05_semantic_view_main.sql" download>sql/05_semantic_view_main.sql</a></td><td>Cross-domain semantic view (canonical KPIs)</td></tr>
+        <tr><td>06</td><td><a href="sql/06_semantic_view_procurement.sql" download>sql/06_semantic_view_procurement.sql</a></td><td>Procurement-specific semantic view</td></tr>
+        <tr><td>07</td><td><a href="sql/07_semantic_view_logistics.sql" download>sql/07_semantic_view_logistics.sql</a></td><td>Logistics-specific semantic view</td></tr>
+        <tr><td>08</td><td><a href="sql/08_cortex_agent.sql" download>sql/08_cortex_agent.sql</a></td><td>Create SUPPLY_CHAIN_AGENT + tool wiring</td></tr>
+        <tr><td>09</td><td><a href="sql/09_demo_queries.sql" download>sql/09_demo_queries.sql</a></td><td>Sample queries used in the demo</td></tr>
+        <tr><td>10</td><td><a href="sql/10_improvements_all.sql" download>sql/10_improvements_all.sql</a></td><td>Dynamic tables, scorecards, health metrics</td></tr>
+        <tr><td>11</td><td><a href="sql/11_cortex_agent_evaluation.sql" download>sql/11_cortex_agent_evaluation.sql</a></td><td>Evaluation dataset + agent scoring</td></tr>
+        <tr><td>12</td><td><a href="sql/12_ml_functions.sql" download>sql/12_ml_functions.sql</a></td><td>ML.FORECAST, custom risk / prioritization procs</td></tr>
+        <tr><td>13</td><td><a href="sql/13_governance_features.sql" download>sql/13_governance_features.sql</a></td><td>Masking, row-access policies, tags, DMFs</td></tr>
+      </tbody>
+    </table>
+    </div>
+
+    <h4 style="margin-top:14px; color: light-dark(#0369a1, #7dd3fc);">Configuration</h4>
+    <ul>
+      <li><a href="environment.yml" download>environment.yml</a> &mdash; Streamlit-in-Snowflake conda environment</li>
+      <li><a href="eval_config.yaml" download>eval_config.yaml</a> &mdash; Cortex Agent evaluation dataset config</li>
+    </ul>
+
+    <h4 style="margin-top:14px; color: light-dark(#0369a1, #7dd3fc);">Documentation</h4>
+    <ul>
+      <li><a href="README.md">README.md</a> &mdash; Repo overview &amp; quickstart</li>
+      <li><a href="docs/REQUIREMENTS.md">docs/REQUIREMENTS.md</a> &mdash; Functional requirements</li>
+      <li><a href="docs/SOLUTION.md">docs/SOLUTION.md</a> &mdash; Full solution design</li>
+      <li><a href="docs/architecture_e2e.md">docs/architecture_e2e.md</a> &mdash; End-to-end architecture</li>
+      <li><a href="docs/ontology.md">docs/ontology.md</a> &mdash; Ontology definition &amp; metrics catalog</li>
+      <li><a href="docs/TEST_SPECIFICATION.md">docs/TEST_SPECIFICATION.md</a> &mdash; Test cases &amp; evaluation plan</li>
+      <li><a href="docs/evaluation_results.md">docs/evaluation_results.md</a> &mdash; Cortex Agent evaluation report</li>
+      <li><a href="docs/improvements.md">docs/improvements.md</a> &mdash; Roadmap &amp; enhancement notes</li>
+    </ul>
+
+    <h4 style="margin-top:14px; color: light-dark(#0369a1, #7dd3fc);">Cortex Agent Deep-Links</h4>
+    <ul>
+      <li><code>SC_ONTOLOGY.ANALYTICS.SUPPLY_CHAIN_AGENT</code> &mdash; defined in <a href="sql/08_cortex_agent.sql" download>08_cortex_agent.sql</a></li>
+      <li>Evaluation dataset <code>sc-ontology-eval-v1</code> &mdash; created in <a href="sql/11_cortex_agent_evaluation.sql" download>11_cortex_agent_evaluation.sql</a> (config: <a href="eval_config.yaml" download>eval_config.yaml</a>)</li>
+      <li>Custom AI procs (<code>SUPPLIER_RISK_ASSESSMENT</code>, <code>PREDICT_TRANSIT_DELAY</code>, <code>AI_PRIORITIZE_ORDERS</code>) &mdash; <a href="sql/12_ml_functions.sql" download>12_ml_functions.sql</a></li>
+      <li>Semantic views wired into the agent &mdash; <a href="sql/05_semantic_view_main.sql" download>05_main</a> &middot; <a href="sql/06_semantic_view_procurement.sql" download>06_procurement</a> &middot; <a href="sql/07_semantic_view_logistics.sql" download>07_logistics</a></li>
+    </ul>
+
+    <p style="font-size:13px; color: light-dark(#64748b, #94a3b8); margin-top:14px;">
+      Tip &mdash; if you host this on GitHub, click any file in the repo view and the relative links will resolve.
+      For a live preview, enable GitHub Pages on the repository root and visit <code>&lt;user&gt;.github.io/&lt;repo&gt;/submission.html</code>.
+    </p>
+  </div>
+
+  <h3>Tech Stack</h3>
+  <p>
+    <span class="badge badge-blue">Snowflake</span>
+    <span class="badge badge-blue">Streamlit-in-Snowflake</span>
+    <span class="badge badge-purple">Cortex Agent</span>
+    <span class="badge badge-purple">Cortex Analyst</span>
+    <span class="badge badge-purple">Cortex Search</span>
+    <span class="badge badge-purple">CORTEX.COMPLETE</span>
+    <span class="badge badge-purple">CORTEX.SENTIMENT</span>
+    <span class="badge badge-green">SNOWFLAKE.ML.FORECAST</span>
+    <span class="badge badge-green">Dynamic Tables</span>
+    <span class="badge badge-orange">DMFs</span>
+    <span class="badge badge-orange">Masking / Row Access Policies</span>
+    <span class="badge badge-orange">Object Tags</span>
+    <span class="badge badge-blue">Snowpark Python</span>
+    <span class="badge badge-blue">CoCo CLI</span>
+  </p>
+</section>
+
+<!-- ============ ARCHITECTURE ============ -->
+<section id="architecture" class="tab-panel">
+  <h2>Architecture</h2>
+  <p>Everything lives inside Snowflake &mdash; no external services, no data movement.</p>
+
+  <h3>High-level diagram</h3>
+  <div class="diagram" style="overflow-x:auto;">
+    <svg viewBox="0 0 900 620" style="width:100%; height:auto; min-width:600px;" xmlns="http://www.w3.org/2000/svg" font-family="system-ui, sans-serif">
+      <defs>
+        <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <path d="M 0 0 L 10 5 L 0 10 z" fill="#64748b"/>
+        </marker>
+        <marker id="arrd" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <path d="M 0 0 L 10 5 L 0 10 z" fill="#f59e0b"/>
+        </marker>
+      </defs>
+
+      <!-- RAW Layer -->
+      <rect x="20" y="20" width="860" height="90" rx="10" fill="#e0f2fe" stroke="#0369a1" stroke-width="2"/>
+      <text x="35" y="42" font-size="13" font-weight="700" fill="#075985">RAW LAYER (Bronze) &mdash; SC_ONTOLOGY.RAW</text>
+      <g font-size="11" fill="#075985">
+        <rect x="35"  y="55" width="90" height="24" rx="4" fill="#ffffff" stroke="#7dd3fc"/><text x="80"  y="71" text-anchor="middle">ORDERS</text>
+        <rect x="135" y="55" width="110" height="24" rx="4" fill="#ffffff" stroke="#7dd3fc"/><text x="190" y="71" text-anchor="middle">ORDER_LINES</text>
+        <rect x="255" y="55" width="100" height="24" rx="4" fill="#ffffff" stroke="#7dd3fc"/><text x="305" y="71" text-anchor="middle">SHIPMENTS</text>
+        <rect x="365" y="55" width="100" height="24" rx="4" fill="#ffffff" stroke="#7dd3fc"/><text x="415" y="71" text-anchor="middle">INVENTORY</text>
+        <rect x="475" y="55" width="100" height="24" rx="4" fill="#ffffff" stroke="#7dd3fc"/><text x="525" y="71" text-anchor="middle">SUPPLIERS</text>
+        <rect x="585" y="55" width="80"  height="24" rx="4" fill="#ffffff" stroke="#7dd3fc"/><text x="625" y="71" text-anchor="middle">PLANTS</text>
+        <rect x="675" y="55" width="100" height="24" rx="4" fill="#ffffff" stroke="#7dd3fc"/><text x="725" y="71" text-anchor="middle">CUSTOMERS</text>
+        <rect x="785" y="55" width="80"  height="24" rx="4" fill="#ffffff" stroke="#7dd3fc"/><text x="825" y="71" text-anchor="middle">PARTS</text>
+      </g>
+
+      <line x1="450" y1="110" x2="450" y2="140" stroke="#64748b" stroke-width="2" marker-end="url(#arr)"/>
+
+      <!-- ADVANCED Layer -->
+      <rect x="20" y="145" width="860" height="90" rx="10" fill="#dbeafe" stroke="#2563eb" stroke-width="2"/>
+      <text x="35" y="167" font-size="13" font-weight="700" fill="#1e40af">ADVANCED LAYER (Silver / Gold) &mdash; SC_ONTOLOGY.ADVANCED</text>
+      <g font-size="11" fill="#1e40af">
+        <rect x="35"  y="180" width="180" height="24" rx="4" fill="#ffffff" stroke="#93c5fd"/><text x="125" y="196" text-anchor="middle">DT_SUPPLIER_SCORECARD</text>
+        <rect x="225" y="180" width="170" height="24" rx="4" fill="#ffffff" stroke="#93c5fd"/><text x="310" y="196" text-anchor="middle">DT_INVENTORY_HEALTH</text>
+        <rect x="405" y="180" width="200" height="24" rx="4" fill="#ffffff" stroke="#93c5fd"/><text x="505" y="196" text-anchor="middle">V_OTD_DAILY_TIMESERIES</text>
+        <rect x="615" y="180" width="150" height="24" rx="4" fill="#ffffff" stroke="#93c5fd"/><text x="690" y="196" text-anchor="middle">COUNTRY_RISK_INDEX</text>
+        <rect x="775" y="180" width="90"  height="24" rx="4" fill="#ffffff" stroke="#93c5fd"/><text x="820" y="196" text-anchor="middle">FORECAST ML</text>
+      </g>
+
+      <line x1="450" y1="235" x2="450" y2="265" stroke="#64748b" stroke-width="2" marker-end="url(#arr)"/>
+
+      <!-- ANALYTICS Layer -->
+      <rect x="20" y="270" width="560" height="90" rx="10" fill="#ede9fe" stroke="#7c3aed" stroke-width="2"/>
+      <text x="35" y="292" font-size="13" font-weight="700" fill="#5b21b6">ANALYTICS LAYER &mdash; SC_ONTOLOGY.ANALYTICS</text>
+      <rect x="35"  y="305" width="150" height="40" rx="6" fill="#ffffff" stroke="#a78bfa"/><text x="110" y="330" text-anchor="middle" font-size="12" fill="#5b21b6">Semantic View</text>
+      <rect x="200" y="305" width="200" height="40" rx="6" fill="#ffffff" stroke="#a78bfa"/><text x="300" y="330" text-anchor="middle" font-size="12" font-weight="700" fill="#5b21b6">SUPPLY_CHAIN_AGENT</text>
+
+      <!-- DOCUMENTS Layer -->
+      <rect x="600" y="270" width="280" height="90" rx="10" fill="#fce7f3" stroke="#be185d" stroke-width="2"/>
+      <text x="615" y="292" font-size="13" font-weight="700" fill="#9d174d">DOCUMENTS</text>
+      <rect x="615" y="305" width="120" height="40" rx="6" fill="#ffffff" stroke="#f9a8d4"/><text x="675" y="330" text-anchor="middle" font-size="11" fill="#9d174d">KNOWLEDGE</text>
+      <rect x="745" y="305" width="120" height="40" rx="6" fill="#ffffff" stroke="#f9a8d4"/><text x="805" y="330" text-anchor="middle" font-size="11" fill="#9d174d">Cortex Search</text>
+
+      <line x1="750" y1="360" x2="400" y2="395" stroke="#64748b" stroke-width="2" marker-end="url(#arr)"/>
+      <line x1="300" y1="360" x2="300" y2="395" stroke="#64748b" stroke-width="2" marker-end="url(#arr)"/>
+
+      <!-- App Layer -->
+      <rect x="150" y="400" width="600" height="70" rx="10" fill="#dcfce7" stroke="#166534" stroke-width="2"/>
+      <text x="450" y="428" font-size="14" font-weight="700" fill="#14532d" text-anchor="middle">Streamlit-in-Snowflake Admin Console</text>
+      <text x="450" y="450" font-size="11" fill="#166534" text-anchor="middle">7 pages &mdash; Executive / AI / Agent / Governance / Quality / Alerts / Ontology</text>
+
+      <!-- Governance Layer (side) -->
+      <rect x="20" y="490" width="860" height="110" rx="10" fill="#fffbeb" stroke="#f59e0b" stroke-width="2" stroke-dasharray="6,4"/>
+      <text x="35" y="512" font-size="13" font-weight="700" fill="#92400e">GOVERNANCE LAYER (enforces on all layers above) &mdash; SC_ONTOLOGY.GOVERNANCE</text>
+      <g font-size="11" fill="#92400e">
+        <rect x="35"  y="525" width="180" height="24" rx="4" fill="#ffffff" stroke="#fbbf24"/><text x="125" y="541" text-anchor="middle">Masking Policies</text>
+        <rect x="225" y="525" width="180" height="24" rx="4" fill="#ffffff" stroke="#fbbf24"/><text x="315" y="541" text-anchor="middle">Row Access Policies</text>
+        <rect x="415" y="525" width="140" height="24" rx="4" fill="#ffffff" stroke="#fbbf24"/><text x="485" y="541" text-anchor="middle">Object Tags</text>
+        <rect x="565" y="525" width="200" height="24" rx="4" fill="#ffffff" stroke="#fbbf24"/><text x="665" y="541" text-anchor="middle">Ontology Changelog</text>
+        <rect x="775" y="525" width="90"  height="24" rx="4" fill="#ffffff" stroke="#fbbf24"/><text x="820" y="541" text-anchor="middle">Persona Matrix</text>
+      </g>
+      <text x="450" y="580" font-size="11" fill="#92400e" text-anchor="middle" font-style="italic">Applied to every fact table &mdash; policies filter rows/columns before data reaches any consumer</text>
+    </svg>
+  </div>
+
+  <h3>Layered design</h3>
+  <div class="table-wrap">
+  <table>
+    <thead><tr><th>Layer</th><th>Schema</th><th>What it holds</th></tr></thead>
+    <tbody>
+      <tr><td>Bronze (RAW)</td><td><code>SC_ONTOLOGY.RAW</code></td><td>Source fact/dim tables: orders, shipments, inventory, suppliers, plants, parts</td></tr>
+      <tr><td>Silver / Gold</td><td><code>SC_ONTOLOGY.ADVANCED</code></td><td>Dynamic tables (supplier scorecard, inventory health), time series views, ML forecast model, country risk</td></tr>
+      <tr><td>Semantic</td><td><code>SC_ONTOLOGY.ANALYTICS</code></td><td>Semantic view + Cortex Agent + evaluation dataset</td></tr>
+      <tr><td>Governance</td><td><code>SC_ONTOLOGY.GOVERNANCE</code></td><td>Masking, row-access, tags, persona matrix, changelog</td></tr>
+      <tr><td>Documents</td><td><code>SC_ONTOLOGY.DOCUMENTS</code></td><td>Policy / contract corpus + Cortex Search service</td></tr>
+      <tr><td>App</td><td>Streamlit-in-Snowflake</td><td>7-page admin console (this repo)</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h3>Cortex Agent tool routing</h3>
+  <div class="diagram" style="overflow-x:auto;">
+    <svg viewBox="0 0 900 480" style="width:100%; height:auto; min-width:600px;" xmlns="http://www.w3.org/2000/svg" font-family="system-ui, sans-serif">
+      <defs>
+        <marker id="arr2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <path d="M 0 0 L 10 5 L 0 10 z" fill="#7c3aed"/>
+        </marker>
+      </defs>
+
+      <!-- User -->
+      <rect x="360" y="20" width="180" height="50" rx="8" fill="#e0f2fe" stroke="#0369a1" stroke-width="2"/>
+      <text x="450" y="42" text-anchor="middle" font-size="13" font-weight="700" fill="#075985">User Question</text>
+      <text x="450" y="58" text-anchor="middle" font-size="11" fill="#075985">via Streamlit / DATA_AGENT_RUN</text>
+
+      <line x1="450" y1="70" x2="450" y2="105" stroke="#7c3aed" stroke-width="2" marker-end="url(#arr2)"/>
+
+      <!-- Agent hub -->
+      <rect x="330" y="110" width="240" height="60" rx="10" fill="#7c3aed" stroke="#5b21b6" stroke-width="2"/>
+      <text x="450" y="135" text-anchor="middle" font-size="15" font-weight="700" fill="#ffffff">SUPPLY_CHAIN_AGENT</text>
+      <text x="450" y="155" text-anchor="middle" font-size="11" fill="#ede9fe">Cortex Agent orchestrator</text>
+
+      <!-- 8 tools -->
+      <g font-size="12">
+        <!-- Row 1 -->
+        <line x1="450" y1="170" x2="120" y2="220" stroke="#7c3aed" stroke-width="1.5" marker-end="url(#arr2)"/>
+        <rect x="20" y="220" width="200" height="60" rx="8" fill="#ede9fe" stroke="#a78bfa" stroke-width="2"/>
+        <text x="120" y="243" text-anchor="middle" font-weight="700" fill="#5b21b6">SupplyChainAnalyst</text>
+        <text x="120" y="262" text-anchor="middle" font-size="10" fill="#5b21b6">Cortex Analyst &mdash; cross-domain KPI</text>
+
+        <line x1="450" y1="170" x2="340" y2="220" stroke="#7c3aed" stroke-width="1.5" marker-end="url(#arr2)"/>
+        <rect x="240" y="220" width="200" height="60" rx="8" fill="#ede9fe" stroke="#a78bfa" stroke-width="2"/>
+        <text x="340" y="243" text-anchor="middle" font-weight="700" fill="#5b21b6">ProcurementAnalyst</text>
+        <text x="340" y="262" text-anchor="middle" font-size="10" fill="#5b21b6">Cortex Analyst &mdash; supplier</text>
+
+        <line x1="450" y1="170" x2="560" y2="220" stroke="#7c3aed" stroke-width="1.5" marker-end="url(#arr2)"/>
+        <rect x="460" y="220" width="200" height="60" rx="8" fill="#ede9fe" stroke="#a78bfa" stroke-width="2"/>
+        <text x="560" y="243" text-anchor="middle" font-weight="700" fill="#5b21b6">LogisticsAnalyst</text>
+        <text x="560" y="262" text-anchor="middle" font-size="10" fill="#5b21b6">Cortex Analyst &mdash; carrier/freight</text>
+
+        <line x1="450" y1="170" x2="780" y2="220" stroke="#7c3aed" stroke-width="1.5" marker-end="url(#arr2)"/>
+        <rect x="680" y="220" width="200" height="60" rx="8" fill="#ede9fe" stroke="#a78bfa" stroke-width="2"/>
+        <text x="780" y="243" text-anchor="middle" font-weight="700" fill="#5b21b6">KnowledgeSearch</text>
+        <text x="780" y="262" text-anchor="middle" font-size="10" fill="#5b21b6">Cortex Search &mdash; policy/contract</text>
+
+        <!-- Row 2 -->
+        <line x1="450" y1="170" x2="120" y2="330" stroke="#7c3aed" stroke-width="1.5" marker-end="url(#arr2)"/>
+        <rect x="20" y="330" width="200" height="60" rx="8" fill="#fce7f3" stroke="#ec4899" stroke-width="2"/>
+        <text x="120" y="353" text-anchor="middle" font-weight="700" fill="#9d174d">SupplierRiskAssessment</text>
+        <text x="120" y="372" text-anchor="middle" font-size="10" fill="#9d174d">Custom LLM &mdash; CORTEX.COMPLETE</text>
+
+        <line x1="450" y1="170" x2="340" y2="330" stroke="#7c3aed" stroke-width="1.5" marker-end="url(#arr2)"/>
+        <rect x="240" y="330" width="200" height="60" rx="8" fill="#fce7f3" stroke="#ec4899" stroke-width="2"/>
+        <text x="340" y="353" text-anchor="middle" font-weight="700" fill="#9d174d">TransitDelayPredictor</text>
+        <text x="340" y="372" text-anchor="middle" font-size="10" fill="#9d174d">Custom ML &mdash; weather + congestion</text>
+
+        <line x1="450" y1="170" x2="560" y2="330" stroke="#7c3aed" stroke-width="1.5" marker-end="url(#arr2)"/>
+        <rect x="460" y="330" width="200" height="60" rx="8" fill="#fce7f3" stroke="#ec4899" stroke-width="2"/>
+        <text x="560" y="353" text-anchor="middle" font-weight="700" fill="#9d174d">OrderPrioritizer</text>
+        <text x="560" y="372" text-anchor="middle" font-size="10" fill="#9d174d">Scoring proc &mdash; expedite recs</text>
+
+        <line x1="450" y1="170" x2="780" y2="330" stroke="#7c3aed" stroke-width="1.5" marker-end="url(#arr2)"/>
+        <rect x="680" y="330" width="200" height="60" rx="8" fill="#dcfce7" stroke="#16a34a" stroke-width="2"/>
+        <text x="780" y="353" text-anchor="middle" font-weight="700" fill="#14532d">data_to_chart</text>
+        <text x="780" y="372" text-anchor="middle" font-size="10" fill="#14532d">Built-in &mdash; visualizations</text>
+      </g>
+
+      <!-- Legend -->
+      <g font-size="11">
+        <rect x="20" y="420" width="14" height="14" fill="#ede9fe" stroke="#a78bfa"/><text x="40" y="432" fill="#334155">Cortex Analyst / Search</text>
+        <rect x="200" y="420" width="14" height="14" fill="#fce7f3" stroke="#ec4899"/><text x="220" y="432" fill="#334155">Custom procedure (LLM / ML)</text>
+        <rect x="440" y="420" width="14" height="14" fill="#dcfce7" stroke="#16a34a"/><text x="460" y="432" fill="#334155">Built-in agent tool</text>
+      </g>
+    </svg>
+  </div>
+</section>
+
+<!-- ============ FEATURES ============ -->
+<section id="features" class="tab-panel">
+  <h2>Feature Pages</h2>
+  <p>The Streamlit console has seven pages, each targeting a different persona.</p>
+
+  <div class="grid">
+    <div class="card"><h3>1. Executive Dashboard</h3>
+      <p>Four canonical KPIs (OTD, Fill Rate, Days of Inventory, Freight/Unit), OTD by plant, bottom-15 supplier scorecard, inventory health.</p>
+      <p><span class="badge badge-blue">Persona: Exec / VP Ops</span></p>
+    </div>
+    <div class="card"><h3>2. AI Intelligence</h3>
+      <p>Four tabs: Supplier Risk (CORTEX.COMPLETE), Document Sentiment (CORTEX.SENTIMENT), Transit Delay Predictor, AI Order Prioritization.</p>
+      <p><span class="badge badge-purple">Persona: Analyst</span></p>
+    </div>
+    <div class="card"><h3>3. Agent Monitoring</h3>
+      <p>Live view of agent config, evaluation metrics per question, tool-usage map, and a live agent tester using <code>CORTEX.DATA_AGENT_RUN</code>.</p>
+      <p><span class="badge badge-purple">Persona: AI Ops</span></p>
+    </div>
+    <div class="card"><h3>4. Governance &amp; Policies</h3>
+      <p>Masking policies, row-access policies, object tags, persona-region access matrix.</p>
+      <p><span class="badge badge-orange">Persona: Data Governance</span></p>
+    </div>
+    <div class="card"><h3>5. Data Quality (DMFs)</h3>
+      <p>Active DMFs, current violation counts (negative inventory, delivered-w/o-date, low fill), execution history from <code>DATA_QUALITY_MONITORING_RESULTS</code>.</p>
+      <p><span class="badge badge-orange">Persona: Data Steward</span></p>
+    </div>
+    <div class="card"><h3>6. Alerts &amp; Anomalies</h3>
+      <p>Snowflake Alerts registry, KPI alert log, 90-day OTD time series, ML.FORECAST for next 30-day order volume.</p>
+      <p><span class="badge badge-green">Persona: On-call / SRE</span></p>
+    </div>
+    <div class="card"><h3>7. Ontology Management</h3>
+      <p>Changelog (breaking vs non-breaking), semantic views registry, metrics &amp; dimensions catalog, country risk index.</p>
+      <p><span class="badge badge-blue">Persona: Ontology Owner</span></p>
+    </div>
+  </div>
+</section>
+
+<!-- ============ AI ============ -->
+<section id="ai" class="tab-panel">
+  <h2>AI &amp; Agent Layer</h2>
+
+  <h3>Cortex Agent</h3>
+  <p>A single agent, <code>SC_ONTOLOGY.ANALYTICS.SUPPLY_CHAIN_AGENT</code>, orchestrates eight tools. It is exercised from Streamlit via <code>SNOWFLAKE.CORTEX.DATA_AGENT_RUN</code>.</p>
+
+  <h3>Tool matrix</h3>
+  <div class="table-wrap">
+  <table>
+    <thead><tr><th>Tool</th><th>Type</th><th>Routes to</th></tr></thead>
+    <tbody>
+      <tr><td>SupplyChainAnalyst</td><td>Cortex Analyst</td><td>Cross-domain KPI queries</td></tr>
+      <tr><td>ProcurementAnalyst</td><td>Cortex Analyst</td><td>Supplier-specific queries</td></tr>
+      <tr><td>LogisticsAnalyst</td><td>Cortex Analyst</td><td>Carrier / freight queries</td></tr>
+      <tr><td>KnowledgeSearch</td><td>Cortex Search</td><td>Policy / contract Q&amp;A</td></tr>
+      <tr><td>SupplierRiskAssessment</td><td>Custom LLM proc</td><td>CORTEX.COMPLETE risk report</td></tr>
+      <tr><td>TransitDelayPredictor</td><td>Custom ML proc</td><td>Weather + congestion delay estimate</td></tr>
+      <tr><td>OrderPrioritizer</td><td>Custom scoring proc</td><td>Expedite recommendations</td></tr>
+      <tr><td>data_to_chart</td><td>Built-in</td><td>Visualizations</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h3>Evaluation loop</h3>
+  <p>Every agent run is captured via <code>SNOWFLAKE.LOCAL.GET_AI_EVALUATION_DATA</code>. The console shows average score per metric and per-question drill-down, sorted by lowest <code>answer_correctness</code> so regressions surface first.</p>
+
+  <h3>ML &amp; other AI functions</h3>
+  <ul>
+    <li><code>SNOWFLAKE.ML.FORECAST</code> - 30-day order volume model</li>
+    <li><code>SNOWFLAKE.CORTEX.SENTIMENT</code> - sentiment on the supply-chain knowledge corpus</li>
+    <li><code>SNOWFLAKE.CORTEX.CLASSIFY_TEXT</code> - doc classification</li>
+    <li><code>SNOWFLAKE.CORTEX.COMPLETE</code> - supplier risk report generation</li>
+  </ul>
+</section>
+
+<!-- ============ GOVERNANCE ============ -->
+<section id="governance" class="tab-panel">
+  <h2>Governance &amp; Data Quality</h2>
+
+  <h3>Masking policies</h3>
+  <div class="table-wrap">
+  <table>
+    <thead><tr><th>Policy</th><th>Protects</th><th>Logic</th></tr></thead>
+    <tbody>
+      <tr><td><code>MASK_FINANCIAL_DATA</code></td><td>unit_cost, freight_cost</td><td>Only roles with <code>can_view_financials=TRUE</code></td></tr>
+      <tr><td><code>MASK_CUSTOMER_PII</code></td><td>customer_name</td><td>Tiered: full / first-3-chars / RESTRICTED</td></tr>
+      <tr><td><code>MASK_SUPPLIER_DETAILS</code></td><td>supplier attributes</td><td>Procurement role only</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h3>Row Access</h3>
+  <p><code>RAP_REGION_FILTER</code> enforces region isolation: Planning in North America cannot see APAC plants unless the persona-region matrix grants it.</p>
+
+  <h3>Object tags</h3>
+  <div class="table-wrap">
+  <table>
+    <thead><tr><th>Tag</th><th>Purpose</th><th>Values</th></tr></thead>
+    <tbody>
+      <tr><td><code>ONTOLOGY_DOMAIN</code></td><td>Business domain</td><td>ERP, Logistics, Supplier, IoT, Finance, Planning</td></tr>
+      <tr><td><code>DATA_SENSITIVITY</code></td><td>Security classification</td><td>Public, Internal, Confidential, Restricted</td></tr>
+      <tr><td><code>DATA_OWNER</code></td><td>Responsible team</td><td>Planning, Procurement, Logistics, Sales, Operations</td></tr>
+      <tr><td><code>REFRESH_FREQUENCY</code></td><td>Data freshness SLA</td><td>Real-time, Hourly, Daily, Weekly, Static</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h3>Data Metric Functions (DMFs)</h3>
+  <div class="table-wrap">
+  <table>
+    <thead><tr><th>DMF</th><th>Attached to</th><th>Checks</th></tr></thead>
+    <tbody>
+      <tr><td><code>DMF_NEGATIVE_INVENTORY</code></td><td>RAW.INVENTORY</td><td>qty_on_hand &lt; 0</td></tr>
+      <tr><td><code>DMF_NULL_DELIVERY_DATES</code></td><td>RAW.ORDERS</td><td>Delivered but null actual_delivery_date</td></tr>
+      <tr><td><code>DMF_LOW_FILL_RATE</code></td><td>RAW.ORDER_LINES</td><td>Line fill &lt; 50%</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p>All DMFs use <code>TRIGGER_ON_CHANGES</code> so violations refresh with the data itself.</p>
+</section>
+
+<!-- ============ CODE ============ -->
+<section id="code" class="tab-panel">
+  <h2>Code Walkthrough</h2>
+  <p>The full Streamlit app lives in <code>streamlit_app.py</code>. Selected excerpts below.</p>
+
+  <h3>Session &amp; Navigation</h3>
+  <pre><code>import streamlit as st
+from snowflake.snowpark.context import get_active_session
+
+st.set_page_config(page_title="Supply Chain Intelligence - Admin Console", layout="wide")
+session = get_active_session()
+
+page = st.sidebar.radio("Navigation", [
+    "Executive Dashboard", "AI Intelligence", "Agent Monitoring &amp; Traceability",
+    "Data Governance &amp; Policies", "Data Quality (DMFs)",
+    "Alerts &amp; Anomalies", "Ontology Management"
+])</code></pre>
+
+  <h3>Canonical OTD metric</h3>
+  <pre><code>otd = session.sql("""
+    SELECT ROUND(COUNT(CASE WHEN actual_delivery_date &lt;= requested_delivery_date THEN 1 END) * 100.0
+        / NULLIF(COUNT(actual_delivery_date), 0), 2) AS otd
+    FROM SC_ONTOLOGY.RAW.ORDERS
+    WHERE actual_delivery_date IS NOT NULL
+""").collect()[0]['OTD']</code></pre>
+
+  <h3>AI Supplier Risk (CORTEX.COMPLETE)</h3>
+  <pre><code>result = session.sql(f"""
+    SELECT SC_ONTOLOGY.ADVANCED.SUPPLIER_RISK_ASSESSMENT('{supplier_input}') AS assessment
+""").collect()[0]['ASSESSMENT']
+st.markdown(result)</code></pre>
+
+  <h3>Calling the Cortex Agent</h3>
+  <pre><code>response = session.sql(f"""
+    SELECT SNOWFLAKE.CORTEX.DATA_AGENT_RUN(
+        'SC_ONTOLOGY.ANALYTICS.SUPPLY_CHAIN_AGENT',
+        '{{"messages": [{{"role": "user",
+            "content": [{{"type": "text", "text": "{agent_question}"}}]}}]}}'
+    ) AS resp
+""").collect()[0]['RESP']</code></pre>
+
+  <h3>Agent Evaluation</h3>
+  <pre><code>SELECT METRIC_NAME,
+       ROUND(AVG(EVAL_AGG_SCORE), 3) AS avg_score,
+       COUNT(DISTINCT INPUT_ID) AS questions_evaluated
+FROM TABLE(SNOWFLAKE.LOCAL.GET_AI_EVALUATION_DATA(
+    'SC_ONTOLOGY', 'ANALYTICS', 'SUPPLY_CHAIN_AGENT',
+    'CORTEX AGENT', 'sc-ontology-eval-v1'
+))
+WHERE METRIC_NAME IS NOT NULL
+GROUP BY METRIC_NAME
+ORDER BY METRIC_NAME;</code></pre>
+
+  <h3>ML Forecast</h3>
+  <pre><code>CALL SC_ONTOLOGY.ADVANCED.ORDER_VOLUME_FORECAST!FORECAST(FORECASTING_PERIODS =&gt; 30);
+SELECT * FROM TABLE(RESULT_SCAN(LAST_QUERY_ID()));</code></pre>
+
+  <h3>DMF violation counters</h3>
+  <pre><code>SELECT COUNT(*) FROM SC_ONTOLOGY.RAW.INVENTORY WHERE qty_on_hand &lt; 0;
+SELECT COUNT(*) FROM SC_ONTOLOGY.RAW.ORDERS
+ WHERE status = 'Delivered' AND actual_delivery_date IS NULL;</code></pre>
+
+  <h3>Full source &mdash; <code>streamlit_app.py</code></h3>
+  <p>
+    <a href="streamlit_app.py" download>Download the file</a> &middot;
+    <a href="#" id="copy-src">Copy to clipboard</a>
+  </p>
+  <pre style="max-height: 480px; overflow: auto;"><code id="full-src">import streamlit as st
+from snowflake.snowpark.context import get_active_session
+
+st.set_page_config(page_title="Supply Chain Intelligence - Admin Console", layout="wide")
+
+session = get_active_session()
+
+st.title("Supply Chain Intelligence Platform")
+st.caption("Governed Ontology | Canonical Metrics | AI-Powered Insights | Admin Console")
+
+page = st.sidebar.radio("Navigation", [
+    "Executive Dashboard",
+    "AI Intelligence",
+    "Agent Monitoring &amp; Traceability",
+    "Data Governance &amp; Policies",
+    "Data Quality (DMFs)",
+    "Alerts &amp; Anomalies",
+    "Ontology Management"
+])
+
+# ============================================================
+# PAGE 1: EXECUTIVE DASHBOARD
+# ============================================================
+if page == "Executive Dashboard":
+    st.header("Executive Dashboard - Canonical KPIs")
+
+    col1, col2, col3, col4 = st.columns(4)
+
+    otd = session.sql("""
+        SELECT ROUND(COUNT(CASE WHEN actual_delivery_date &lt;= requested_delivery_date THEN 1 END) * 100.0
+            / NULLIF(COUNT(actual_delivery_date), 0), 2) AS otd
+        FROM SC_ONTOLOGY.RAW.ORDERS WHERE actual_delivery_date IS NOT NULL
+    """).collect()[0]['OTD']
+
+    fill_rate = session.sql("""
+        SELECT ROUND(SUM(qty_fulfilled) * 100.0 / NULLIF(SUM(qty_ordered), 0), 2) AS fr
+        FROM SC_ONTOLOGY.RAW.ORDER_LINES
+    """).collect()[0]['FR']
+
+    doi = session.sql("""
+        SELECT ROUND(AVG(qty_on_hand) / NULLIF(AVG(avg_daily_demand), 0), 1) AS doi
+        FROM SC_ONTOLOGY.RAW.INVENTORY
+    """).collect()[0]['DOI']
+
+    freight = session.sql("""
+        SELECT ROUND(AVG(freight_cost / NULLIF(qty_shipped, 0)), 2) AS fpu
+        FROM SC_ONTOLOGY.RAW.SHIPMENTS
+    """).collect()[0]['FPU']
+
+    col1.metric("On-Time Delivery (OTD%)", f"{otd}%", delta="-47.05 vs 95% target", delta_color="inverse")
+    col2.metric("Fill Rate", f"{fill_rate}%", delta="-31.34 vs 98% target", delta_color="inverse")
+    col3.metric("Days of Inventory", f"{doi} days", delta="Target: 15-30 days")
+    col4.metric("Freight Cost/Unit", f"${freight}", delta="Target: &lt;$25", delta_color="inverse")
+
+    st.divider()
+
+    st.subheader("OTD by Plant")
+    otd_plant = session.sql("""
+        SELECT p.plant_name, p.region,
+            ROUND(COUNT(CASE WHEN o.actual_delivery_date &lt;= o.requested_delivery_date THEN 1 END) * 100.0
+                / NULLIF(COUNT(o.actual_delivery_date), 0), 2) AS otd_pct
+        FROM SC_ONTOLOGY.RAW.ORDERS o
+        JOIN SC_ONTOLOGY.RAW.ORDER_LINES ol ON o.order_id = ol.order_id
+        JOIN SC_ONTOLOGY.RAW.PLANTS p ON ol.plant_id = p.plant_id
+        WHERE o.actual_delivery_date IS NOT NULL
+        GROUP BY p.plant_name, p.region ORDER BY otd_pct DESC
+    """).to_pandas()
+    st.bar_chart(otd_plant.set_index('PLANT_NAME')['OTD_PCT'])
+
+    col_left, col_right = st.columns(2)
+    with col_left:
+        st.subheader("Supplier Scorecard (Bottom 15 by OTD)")
+        supplier_data = session.sql("""
+            SELECT supplier_name, supplier_tier,
+                ROUND(otd_pct, 1) AS otd_pct,
+                ROUND(fill_rate_pct, 1) AS fill_rate_pct,
+                quality_score
+            FROM SC_ONTOLOGY.ADVANCED.DT_SUPPLIER_SCORECARD
+            ORDER BY otd_pct ASC LIMIT 15
+        """).to_pandas()
+        st.dataframe(supplier_data, use_container_width=True)
+
+    with col_right:
+        st.subheader("Inventory Health")
+        inv_data = session.sql("""
+            SELECT plant_name, abc_class,
+                ROUND(days_of_inventory, 1) AS doi,
+                below_reorder_point AS below_rop,
+                stockout_count
+            FROM SC_ONTOLOGY.ADVANCED.DT_INVENTORY_HEALTH
+            ORDER BY days_of_inventory DESC LIMIT 15
+        """).to_pandas()
+        st.dataframe(inv_data, use_container_width=True)
+
+# ============================================================
+# PAGE 2: AI INTELLIGENCE
+# ============================================================
+elif page == "AI Intelligence":
+    st.header("AI-Powered Intelligence")
+
+    ai_tab1, ai_tab2, ai_tab3, ai_tab4 = st.tabs([
+        "Supplier Risk Assessment", "Document Intelligence",
+        "Transit Prediction", "Order Prioritization"
+    ])
+
+    with ai_tab1:
+        st.subheader("AI Supplier Risk Assessment")
+        st.info("Uses CORTEX.COMPLETE to analyze supplier metrics + quality documents + country risk")
+        supplier_input = st.text_input("Enter supplier name:", "Quantum Plastics")
+        if st.button("Generate AI Risk Report"):
+            with st.spinner("Running AI analysis (CORTEX.COMPLETE)..."):
+                result = session.sql(f"""
+                    SELECT SC_ONTOLOGY.ADVANCED.SUPPLIER_RISK_ASSESSMENT('{supplier_input}') AS assessment
+                """).collect()[0]['ASSESSMENT']
+                st.markdown(result)
+
+    with ai_tab2:
+        st.subheader("Document Sentiment &amp; Classification")
+        st.info("Uses CORTEX.SENTIMENT + CORTEX.CLASSIFY_TEXT on supply chain documents")
+        sentiment_data = session.sql("""
+            SELECT title, doc_type, category,
+                ROUND(SNOWFLAKE.CORTEX.SENTIMENT(content), 3) AS sentiment,
+                CASE WHEN SNOWFLAKE.CORTEX.SENTIMENT(content) &gt; 0.3 THEN 'Positive'
+                     WHEN SNOWFLAKE.CORTEX.SENTIMENT(content) &lt; -0.3 THEN 'Negative'
+                     ELSE 'Neutral' END AS sentiment_label
+            FROM SC_ONTOLOGY.DOCUMENTS.SUPPLY_CHAIN_KNOWLEDGE
+            ORDER BY sentiment ASC
+        """).to_pandas()
+        st.dataframe(sentiment_data, use_container_width=True)
+
+    with ai_tab3:
+        st.subheader("ML Transit Delay Prediction")
+        st.info("Uses historical weather + congestion data to predict delays")
+        col_o, col_d, col_w = st.columns(3)
+        origin = col_o.selectbox("Origin Region", ["Asia Pacific", "Europe", "North America", "Latin America"])
+        dest = col_d.selectbox("Destination Region", ["North America", "Europe", "Asia Pacific"])
+        weather = col_w.selectbox("Weather Severity", ["Normal", "Moderate", "Severe", "Extreme"])
+        if st.button("Predict Transit Delay"):
+            pred = session.sql(f"""
+                SELECT * FROM TABLE(SC_ONTOLOGY.ADVANCED.PREDICT_TRANSIT_DELAY('{origin}', '{dest}', '{weather}'))
+            """).to_pandas()
+            st.dataframe(pred, use_container_width=True)
+
+    with ai_tab4:
+        st.subheader("AI Order Prioritization")
+        st.info("Scores pending orders by urgency: customer segment + days until due + priority")
+        if st.button("Get Priority Orders"):
+            priority_data = session.sql("""
+                SELECT * FROM TABLE(SC_ONTOLOGY.ADVANCED.AI_PRIORITIZE_ORDERS())
+            """).to_pandas()
+            st.dataframe(priority_data, use_container_width=True)
+
+# ============================================================
+# PAGE 3: AGENT MONITORING &amp; TRACEABILITY
+# ============================================================
+elif page == "Agent Monitoring &amp; Traceability":
+    st.header("Cortex Agent - Monitoring &amp; Traceability")
+
+    st.subheader("Agent Configuration")
+    agent_info = session.sql("""
+        DESCRIBE AGENT SC_ONTOLOGY.ANALYTICS.SUPPLY_CHAIN_AGENT
+    """).to_pandas()
+    st.dataframe(agent_info.head(20), use_container_width=True)
+
+    st.divider()
+
+    st.subheader("Evaluation Run Results")
+    eval_summary = session.sql("""
+        SELECT
+            METRIC_NAME,
+            ROUND(AVG(EVAL_AGG_SCORE), 3) AS avg_score,
+            COUNT(DISTINCT INPUT_ID) AS questions_evaluated
+        FROM TABLE(SNOWFLAKE.LOCAL.GET_AI_EVALUATION_DATA(
+            'SC_ONTOLOGY', 'ANALYTICS', 'SUPPLY_CHAIN_AGENT', 'CORTEX AGENT', 'sc-ontology-eval-v1'
+        ))
+        WHERE METRIC_NAME IS NOT NULL
+        GROUP BY METRIC_NAME
+        ORDER BY METRIC_NAME
+    """).to_pandas()
+    st.dataframe(eval_summary, use_container_width=True)
+
+    # ... (governance, DMF, alerts, ontology pages continue in the file)
+    # For brevity, see streamlit_app.py in the repo for the remaining 4 pages:
+    #   - Data Governance &amp; Policies
+    #   - Data Quality (DMFs)
+    #   - Alerts &amp; Anomalies
+    #   - Ontology Management
+</code></pre>
+  <p style="font-size:13px; color: light-dark(#64748b, #94a3b8);">
+    The excerpt above shows the first three pages of the app. The complete <code>streamlit_app.py</code>
+    (with all seven pages) is available via the <a href="streamlit_app.py" download>download link</a>.
+  </p>
+</section>
+
+<!-- ============ COCO CLI ============ -->
+<section id="coco" class="tab-panel">
+  <h2>Building &amp; Operating with the CoCo CLI</h2>
+  <p>Every step of this project &mdash; from scaffolding the schema to deploying the Streamlit app &mdash; can be driven from Cortex Code (CoCo) Desktop &amp; CLI. Below are concrete scenarios used during the hackathon.</p>
+
+  <div class="scenario">
+    <h4>Scenario 1 &mdash; Bootstrapping the ontology from a natural-language prompt</h4>
+    <p>The CoCo agent is asked to design the RAW &rarr; ADVANCED layer.</p>
+    <pre><code>&gt; coco
+&gt; Design a supply-chain ontology in SC_ONTOLOGY with RAW facts
+  (ORDERS, ORDER_LINES, SHIPMENTS, INVENTORY, SUPPLIERS, PLANTS,
+  PARTS, CUSTOMERS) and derive dynamic tables for supplier
+  scorecard and inventory health. Add DMFs for negative inventory
+  and null delivery dates.</code></pre>
+    <p>CoCo invokes the <code>agent-studio</code>, <code>dynamic-tables</code>, and <code>data-quality</code> skills, generating DDL then executing it via <code>snowflake_sql_execute</code>.</p>
+  </div>
+
+  <div class="scenario">
+    <h4>Scenario 2 &mdash; Generating the semantic view + Cortex Agent</h4>
+    <pre><code>&gt; Create a semantic view over the SC ontology with canonical
+  metrics (OTD, Fill Rate, DOI, Freight/Unit) and build a Cortex
+  Agent that routes procurement, logistics and cross-domain
+  questions to separate analyst tools plus a Cortex Search tool
+  over SUPPLY_CHAIN_KNOWLEDGE.</code></pre>
+    <p>Skill route: <code>agent-studio</code> &rarr; validates the YAML with <code>reflect_semantic_model</code> &rarr; deploys agent + verified queries.</p>
+  </div>
+
+  <div class="scenario">
+    <h4>Scenario 3 &mdash; Scaffolding the Streamlit-in-Snowflake app</h4>
+    <pre><code>&gt; /skill developing-with-streamlit-in-snowflake
+&gt; Build a 7-page admin console (streamlit_app.py) that surfaces
+  KPIs, agent evaluation, governance policies, DMFs, alerts, and
+  the ontology changelog.
+
+&gt; snow streamlit deploy \
+    --database SC_ONTOLOGY --schema ANALYTICS \
+    --name SUPPLY_CHAIN_CONSOLE</code></pre>
+  </div>
+
+  <div class="scenario">
+    <h4>Scenario 4 &mdash; Adding governance in a single turn</h4>
+    <pre><code>&gt; /skill data-governance
+&gt; Add MASK_FINANCIAL_DATA, MASK_CUSTOMER_PII, MASK_SUPPLIER_DETAILS
+  masking policies and a RAP_REGION_FILTER row-access policy driven
+  by SC_ONTOLOGY.GOVERNANCE.PERSONA_REGION_ACCESS. Tag every fact
+  table with ONTOLOGY_DOMAIN, DATA_SENSITIVITY, DATA_OWNER, and
+  REFRESH_FREQUENCY.</code></pre>
+  </div>
+
+  <div class="scenario">
+    <h4>Scenario 5 &mdash; Continuous agent evaluation</h4>
+    <pre><code>&gt; /skill evaluate-cortex-analyst
+&gt; Run the sc-ontology-eval-v1 evaluation over SUPPLY_CHAIN_AGENT
+  and report questions with answer_correctness &lt; 0.8.</code></pre>
+    <p>Results flow back into the "Agent Monitoring" page in Streamlit.</p>
+  </div>
+
+  <div class="scenario">
+    <h4>Scenario 6 &mdash; Scheduling refresh &amp; alerts as CoCo automations</h4>
+    <pre><code>&gt; cortex automation create \
+    --name "sc-daily-otd-check" \
+    --schedule "cron 0 7 * * *" \
+    --prompt "Query SC_ONTOLOGY, if OTD &lt; 60% for yesterday send an
+              alert notification to ops-slack"</code></pre>
+  </div>
+
+  <div class="scenario">
+    <h4>Scenario 7 &mdash; Publishing this submission report</h4>
+    <pre><code>&gt; /skill snowflake-publish-report
+&gt; Publish d:\clihackathon\submission.html to Snowflake Intelligence
+  and share with role HACKATHON_JUDGES.</code></pre>
+  </div>
+
+  <div class="scenario">
+    <h4>Scenario 8 &mdash; Debugging &amp; troubleshooting</h4>
+    <pre><code>&gt; /skill agent-optimization
+&gt; The agent gives generic answers for logistics questions. Audit
+  tool routing and verified queries; suggest fixes.</code></pre>
+    <p>CoCo inspects <code>DESCRIBE AGENT</code>, evaluation traces, and semantic-view VQRs to pinpoint the LogisticsAnalyst gap.</p>
+  </div>
+</section>
+
+<!-- ============ E2E FLOW ============ -->
+<section id="e2e" class="tab-panel">
+  <h2>End-to-End Flow</h2>
+  <p>A user question in the console flows through governance, agent orchestration, and back to a governed answer.</p>
+
+  <div class="diagram" style="overflow-x:auto;">
+    <svg viewBox="0 0 900 500" style="width:100%; height:auto; min-width:700px;" xmlns="http://www.w3.org/2000/svg" font-family="system-ui, sans-serif">
+      <defs>
+        <marker id="arr3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <path d="M 0 0 L 10 5 L 0 10 z" fill="#334155"/>
+        </marker>
+      </defs>
+      <!-- Lifelines -->
+      <g font-size="12" font-weight="700" fill="#0f172a">
+        <rect x="20" y="20" width="100" height="34" rx="6" fill="#e0f2fe" stroke="#0369a1"/><text x="70" y="42" text-anchor="middle">User</text>
+        <rect x="150" y="20" width="100" height="34" rx="6" fill="#e0f2fe" stroke="#0369a1"/><text x="200" y="42" text-anchor="middle">Session</text>
+        <rect x="280" y="20" width="100" height="34" rx="6" fill="#ede9fe" stroke="#7c3aed"/><text x="330" y="42" text-anchor="middle">Agent</text>
+        <rect x="410" y="20" width="100" height="34" rx="6" fill="#ede9fe" stroke="#7c3aed"/><text x="460" y="42" text-anchor="middle">Tool</text>
+        <rect x="540" y="20" width="100" height="34" rx="6" fill="#fffbeb" stroke="#f59e0b"/><text x="590" y="42" text-anchor="middle">Governance</text>
+        <rect x="670" y="20" width="100" height="34" rx="6" fill="#dbeafe" stroke="#2563eb"/><text x="720" y="42" text-anchor="middle">Data</text>
+        <rect x="800" y="20" width="80"  height="34" rx="6" fill="#dcfce7" stroke="#16a34a"/><text x="840" y="42" text-anchor="middle">EvalStore</text>
+      </g>
+      <!-- Lifeline lines -->
+      <g stroke="#cbd5e1" stroke-width="1" stroke-dasharray="4,4">
+        <line x1="70"  y1="54" x2="70"  y2="480"/>
+        <line x1="200" y1="54" x2="200" y2="480"/>
+        <line x1="330" y1="54" x2="330" y2="480"/>
+        <line x1="460" y1="54" x2="460" y2="480"/>
+        <line x1="590" y1="54" x2="590" y2="480"/>
+        <line x1="720" y1="54" x2="720" y2="480"/>
+        <line x1="840" y1="54" x2="840" y2="480"/>
+      </g>
+      <!-- Messages -->
+      <g font-size="11" fill="#0f172a">
+        <line x1="70"  y1="80"  x2="198" y2="80"  stroke="#334155" stroke-width="1.5" marker-end="url(#arr3)"/>
+        <text x="135" y="75"  text-anchor="middle">1. Ask "OTD for APAC?"</text>
+
+        <line x1="200" y1="120" x2="328" y2="120" stroke="#334155" stroke-width="1.5" marker-end="url(#arr3)"/>
+        <text x="265" y="115" text-anchor="middle">2. CORTEX.DATA_AGENT_RUN</text>
+
+        <line x1="330" y1="160" x2="458" y2="160" stroke="#334155" stroke-width="1.5" marker-end="url(#arr3)"/>
+        <text x="395" y="155" text-anchor="middle">3. Route to LogisticsAnalyst</text>
+
+        <line x1="460" y1="200" x2="588" y2="200" stroke="#334155" stroke-width="1.5" marker-end="url(#arr3)"/>
+        <text x="525" y="195" text-anchor="middle">4. SQL through masking + RAP</text>
+
+        <line x1="590" y1="240" x2="718" y2="240" stroke="#334155" stroke-width="1.5" marker-end="url(#arr3)"/>
+        <text x="655" y="235" text-anchor="middle">5. Filtered rows only</text>
+
+        <line x1="720" y1="280" x2="462" y2="280" stroke="#334155" stroke-width="1.5" stroke-dasharray="5,3" marker-end="url(#arr3)"/>
+        <text x="590" y="275" text-anchor="middle">6. Aggregated result</text>
+
+        <line x1="460" y1="320" x2="332" y2="320" stroke="#334155" stroke-width="1.5" stroke-dasharray="5,3" marker-end="url(#arr3)"/>
+        <text x="395" y="315" text-anchor="middle">7. Structured answer</text>
+
+        <line x1="330" y1="360" x2="202" y2="360" stroke="#334155" stroke-width="1.5" stroke-dasharray="5,3" marker-end="url(#arr3)"/>
+        <text x="265" y="355" text-anchor="middle">8. JSON response</text>
+
+        <line x1="200" y1="400" x2="72"  y2="400" stroke="#334155" stroke-width="1.5" stroke-dasharray="5,3" marker-end="url(#arr3)"/>
+        <text x="135" y="395" text-anchor="middle">9. Markdown + chart</text>
+
+        <line x1="330" y1="440" x2="838" y2="440" stroke="#7c3aed" stroke-width="1.5" marker-end="url(#arr3)"/>
+        <text x="585" y="435" text-anchor="middle" fill="#5b21b6">10. Log run for agent evaluation</text>
+      </g>
+    </svg>
+  </div>
+
+  <h3>Build &amp; Deploy sequence</h3>
+  <div class="diagram" style="overflow-x:auto;">
+    <svg viewBox="0 0 900 260" style="width:100%; height:auto; min-width:700px;" xmlns="http://www.w3.org/2000/svg" font-family="system-ui, sans-serif">
+      <defs>
+        <marker id="arr4" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <path d="M 0 0 L 10 5 L 0 10 z" fill="#2563eb"/>
+        </marker>
+      </defs>
+      <g font-size="12" font-weight="600" fill="#0f172a">
+        <rect x="20"  y="30" width="110" height="60" rx="8" fill="#dbeafe" stroke="#2563eb"/><text x="75"  y="60" text-anchor="middle">1. Prompt</text><text x="75"  y="78" text-anchor="middle" font-size="10">CoCo CLI</text>
+        <rect x="150" y="30" width="110" height="60" rx="8" fill="#dbeafe" stroke="#2563eb"/><text x="205" y="60" text-anchor="middle">2. Skill routing</text><text x="205" y="78" text-anchor="middle" font-size="10">agent-studio, dcm, ...</text>
+        <rect x="280" y="30" width="110" height="60" rx="8" fill="#dbeafe" stroke="#2563eb"/><text x="335" y="60" text-anchor="middle">3. Generate</text><text x="335" y="78" text-anchor="middle" font-size="10">DDL / YAML / Py</text>
+        <rect x="410" y="30" width="110" height="60" rx="8" fill="#dbeafe" stroke="#2563eb"/><text x="465" y="60" text-anchor="middle">4. Validate</text><text x="465" y="78" text-anchor="middle" font-size="10">reflect / compile</text>
+        <rect x="540" y="30" width="110" height="60" rx="8" fill="#dbeafe" stroke="#2563eb"/><text x="595" y="60" text-anchor="middle">5. Execute</text><text x="595" y="78" text-anchor="middle" font-size="10">snowflake_sql_execute</text>
+        <rect x="670" y="30" width="110" height="60" rx="8" fill="#dbeafe" stroke="#2563eb"/><text x="725" y="60" text-anchor="middle">6. Deploy</text><text x="725" y="78" text-anchor="middle" font-size="10">snow streamlit deploy</text>
+        <rect x="330" y="150" width="240" height="60" rx="8" fill="#dcfce7" stroke="#16a34a"/><text x="450" y="180" text-anchor="middle" fill="#14532d">7. Monitor</text><text x="450" y="198" text-anchor="middle" font-size="10" fill="#14532d">agent eval + DMFs + alerts</text>
+      </g>
+      <!-- arrows -->
+      <g stroke="#2563eb" stroke-width="2" fill="none">
+        <line x1="130" y1="60" x2="148" y2="60" marker-end="url(#arr4)"/>
+        <line x1="260" y1="60" x2="278" y2="60" marker-end="url(#arr4)"/>
+        <line x1="390" y1="60" x2="408" y2="60" marker-end="url(#arr4)"/>
+        <line x1="520" y1="60" x2="538" y2="60" marker-end="url(#arr4)"/>
+        <line x1="650" y1="60" x2="668" y2="60" marker-end="url(#arr4)"/>
+        <path d="M 725 90 Q 725 120 570 180" marker-end="url(#arr4)"/>
+        <path d="M 330 180 Q 75 180 75 90" marker-end="url(#arr4)" stroke="#16a34a"/>
+      </g>
+      <text x="200" y="240" font-size="11" fill="#166534" font-style="italic">Loop back &mdash; evaluation results drive the next prompt</text>
+    </svg>
+  </div>
+
+  <h3>Judging highlights</h3>
+  <ul>
+    <li><strong>Snowflake-native:</strong> zero external infra &mdash; every component (data, ML, agent, UI, governance) sits inside one account.</li>
+    <li><strong>Reproducible via CoCo:</strong> the whole build was orchestrated through skills, showing CoCo CLI as the primary developer surface.</li>
+    <li><strong>Trust:</strong> governance + DMFs + agent eval make the AI answers auditable, not just impressive.</li>
+    <li><strong>Extensible ontology:</strong> new metrics = new rows in the semantic view + a changelog entry, not a UI rewrite.</li>
+  </ul>
+</section>
+
+<script>
+  // Tab switching
+  const buttons = document.querySelectorAll('.tab-btn');
+  const panels = document.querySelectorAll('.tab-panel');
+  buttons.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const target = btn.dataset.tab;
+      buttons.forEach(b => b.classList.toggle('active', b === btn));
+      panels.forEach(p => p.classList.toggle('active', p.id === target));
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+  });
+
+  // Copy source to clipboard
+  const copyBtn = document.getElementById('copy-src');
+  if (copyBtn) {
+    copyBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      const src = document.getElementById('full-src');
+      if (!src) return;
+      const text = src.textContent;
+      navigator.clipboard.writeText(text).then(() => {
+        copyBtn.textContent = 'Copied!';
+        setTimeout(() => { copyBtn.textContent = 'Copy to clipboard'; }, 1500);
+      }).catch(() => {
+        copyBtn.textContent = 'Copy failed - select manually';
+      });
+    });
+  }
+</script>
+
+</body>
+</html>

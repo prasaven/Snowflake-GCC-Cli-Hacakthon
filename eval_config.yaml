@@ -1,0 +1,40 @@
+# Supply Chain Ontology - Cortex Agent Evaluation Config
+
+evaluation:
+  agent_params:
+    agent_name: "SC_ONTOLOGY.ANALYTICS.SUPPLY_CHAIN_AGENT"
+    agent_type: "CORTEX AGENT"
+  run_params:
+    label: "Supply Chain Ontology - Full Evaluation"
+    description: "Evaluates OTD, fill rate, DOI metrics consistency and tool routing across personas"
+  source_metadata:
+    type: "dataset"
+    dataset_name: "SC_ONTOLOGY.ADVANCED.SC_AGENT_EVAL_DATASET_V1"
+
+metrics:
+  - "answer_correctness"
+  - "logical_consistency"
+  - "tool_selection_accuracy"
+  - "tool_execution_accuracy"
+  - name: "metric_consistency"
+    score_ranges:
+      min_score: [0, 3]
+      median_score: [4, 6]
+      max_score: [7, 10]
+    prompt: |
+      You are evaluating whether a supply chain analytics agent uses CONSISTENT metric definitions.
+      The canonical formulas that MUST be used are:
+      - OTD% = orders delivered on/before requested date / total delivered orders * 100
+      - Fill Rate = sum(qty_fulfilled) / sum(qty_ordered) * 100
+      - Days of Inventory = avg(qty_on_hand) / avg(daily_demand)
+      - Landed Cost = unit_cost + freight_cost/qty_shipped
+
+      Given the agent's output: {{output}}
+      And the expected ground truth: {{ground_truth}}
+
+      Score from 1-10:
+      1-3 = The agent used a WRONG or DIFFERENT formula for the metric
+      4-6 = The agent returned a value but did not clearly reference the canonical definition
+      7-10 = The agent correctly used the canonical formula AND cited/explained the definition
+
+      Provide your numeric score only.
