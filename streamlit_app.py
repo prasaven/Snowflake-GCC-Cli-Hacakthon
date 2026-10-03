@@ -1,15 +1,174 @@
 import streamlit as st
-from snowflake.snowpark.context import get_active_session
+
+import json
+import os
+
+import pandas as pd
+import requests
 
 st.set_page_config(page_title="Supply Chain Intelligence - Admin Console", layout="wide")
 
-session = get_active_session()
+conn = st.connection("snowflake", ttl=os.getenv("SNOWFLAKE_CONNECTION_TTL"))
+session = conn.session()
+
+def safe_scalar(query, col, default=0):
+    rows = session.sql(query).collect()
+    if not rows:
+        return default
+    val = rows[0][col]
+    return val if val is not None else default
+
+# ============================================================
+# CORTEX AGENT CHAT HELPERS (REST API, server-sent events)
+# ============================================================
+AGENT_DB, AGENT_SCHEMA, AGENT_NAME = "SC_ONTOLOGY", "ANALYTICS", "SUPPLY_CHAIN_AGENT"
+AGENT_FQN = f"{AGENT_DB}.{AGENT_SCHEMA}.{AGENT_NAME}"
+AGENT_HISTORY_TURNS = 10  # prior messages sent back to the agent for context
+AGENT_STARTERS = [
+    "What is our overall OTD rate?",
+    "Show OTD rate by carrier as a bar chart",
+    "Which 5 suppliers have the worst OTD?",
+    "What does our policy say about expediting orders?",
+]
+
+def _agent_post(messages):
+    raw = conn.raw_connection
+    url = f"https://{raw.host}/api/v2/databases/{AGENT_DB}/schemas/{AGENT_SCHEMA}/agents/{AGENT_NAME}:run"
+    headers = {
+        "Authorization": f'Snowflake Token="{raw.rest.token}"',
+        "Content-Type": "application/json",
+        "Accept": "text/event-stream",
+    }
+    return requests.post(url, json={"messages": messages, "stream": True},
+                         headers=headers, stream=True, timeout=(10, 600))
+
+def stream_agent_events(messages):
+    """Yield (event_name, payload_dict) tuples from the agent's SSE stream."""
+    resp = _agent_post(messages)
+    if resp.status_code == 401:
+        # Session token expired - reconnect once and retry
+        resp.close()
+        conn.reset()
+        resp = _agent_post(messages)
+    with resp:
+        if resp.status_code != 200:
+            yield "error", {"message": f"HTTP {resp.status_code}: {resp.text[:500]}"}
+            return
+        event, data_lines = None, []
+        for line in resp.iter_lines(decode_unicode=True):
+            if line is None:
+                continue
+            if line.startswith("event:"):
+                event = line[6:].strip()
+            elif line.startswith("data:"):
+                data_lines.append(line[5:].lstrip())
+            elif line == "" and event:
+                data = "\n".join(data_lines)
+                if data and data != "[DONE]":
+                    try:
+                        yield event, json.loads(data)
+                    except json.JSONDecodeError:
+                        pass
+                event, data_lines = None, []
+
+def result_set_to_df(result_set):
+    row_type = result_set.get("resultSetMetaData", {}).get("rowType", [])
+    cols = [c["name"] for c in row_type]
+    df = pd.DataFrame(result_set.get("data", []), columns=cols or None)
+    for meta in row_type:
+        if meta.get("type") in ("fixed", "real", "number", "float"):
+            df[meta["name"]] = pd.to_numeric(df[meta["name"]], errors="coerce")
+    return df
+
+def run_agent_streaming(api_messages):
+    """Stream one agent turn into the current chat message; return what to store in history."""
+    result = {"text": "", "thinking": "", "steps": [], "tables": [], "charts": [],
+              "sql": [], "suggestions": [], "error": None}
+    status = st.status("Planning the next steps...", expanded=False)
+    with status:
+        thinking_ph = st.empty()
+
+    def text_stream():
+        for event, data in stream_agent_events(api_messages):
+            if event == "response.status":
+                status.update(label=data.get("message", "Working..."))
+            elif event == "response.thinking.delta":
+                result["thinking"] += data.get("text", "")
+                thinking_ph.markdown(result["thinking"])
+            elif event == "response.tool_use":
+                step = f"Tool call: **{data.get('name', 'unknown')}**"
+                result["steps"].append(step)
+                status.write(step)
+            elif event == "response.tool_result":
+                for item in data.get("content", []):
+                    sql = (item.get("json") or {}).get("sql")
+                    if sql and sql not in result["sql"]:
+                        result["sql"].append(sql)
+            elif event == "response.text.delta":
+                yield data.get("text", "")
+            elif event == "response.table":
+                result["tables"].append({"title": data.get("title") or "Result",
+                                         "df": result_set_to_df(data.get("result_set", {}))})
+            elif event == "response.chart":
+                if data.get("chart_spec"):
+                    result["charts"].append(data["chart_spec"])
+            elif event == "response.suggested_queries":
+                result["suggestions"] = [q["query"] for q in data.get("suggested_queries", []) if q.get("query")]
+            elif event == "error":
+                result["error"] = data.get("message", str(data))
+
+    try:
+        streamed = st.write_stream(text_stream())
+        result["text"] = streamed if isinstance(streamed, str) else "".join(str(s) for s in (streamed or []))
+    except requests.RequestException as e:
+        result["error"] = f"Request to agent failed: {e}"
+
+    if result["error"]:
+        status.update(label="Agent returned an error", state="error")
+        st.error(result["error"])
+    else:
+        status.update(label="Response complete", state="complete")
+    return result
+
+def render_agent_artifacts(msg, show_suggestions=False, key_prefix=""):
+    for t in msg.get("tables", []):
+        st.caption(t["title"])
+        st.dataframe(t["df"], use_container_width=True)
+    for spec in msg.get("charts", []):
+        try:
+            st.vega_lite_chart(json.loads(spec), use_container_width=True)
+        except (json.JSONDecodeError, TypeError):
+            st.caption("Chart could not be rendered.")
+    if msg.get("sql"):
+        with st.expander("SQL generated by the agent"):
+            for s in msg["sql"]:
+                st.code(s, language="sql")
+    if msg.get("steps") or msg.get("thinking"):
+        with st.expander("Reasoning & tool calls"):
+            for step in msg.get("steps", []):
+                st.markdown(step)
+            if msg.get("thinking"):
+                st.markdown(msg["thinking"])
+    if msg.get("error"):
+        st.error(msg["error"])
+    if show_suggestions and msg.get("suggestions"):
+        st.caption("Suggested follow-ups")
+        for j, q in enumerate(msg["suggestions"]):
+            st.button(q, key=f"{key_prefix}_sugg_{j}", on_click=_queue_agent_prompt, args=(q,))
+
+def _queue_agent_prompt(prompt):
+    st.session_state.agent_pending_prompt = prompt
+
+def _clear_agent_chat():
+    st.session_state.agent_chat = []
+    st.session_state.pop("agent_pending_prompt", None)
 
 st.title("Supply Chain Intelligence Platform")
 st.caption("Governed Ontology | Canonical Metrics | AI-Powered Insights | Admin Console")
 
 page = st.sidebar.radio("Navigation", [
     "Executive Dashboard",
+    "Agent Chatbot",
     "AI Intelligence",
     "Agent Monitoring & Traceability",
     "Data Governance & Policies",
@@ -26,26 +185,26 @@ if page == "Executive Dashboard":
 
     col1, col2, col3, col4 = st.columns(4)
 
-    otd = session.sql("""
+    otd = safe_scalar("""
         SELECT ROUND(COUNT(CASE WHEN actual_delivery_date <= requested_delivery_date THEN 1 END) * 100.0 
             / NULLIF(COUNT(actual_delivery_date), 0), 2) AS otd
         FROM SC_ONTOLOGY.RAW.ORDERS WHERE actual_delivery_date IS NOT NULL
-    """).collect()[0]['OTD']
+    """, 'OTD')
 
-    fill_rate = session.sql("""
+    fill_rate = safe_scalar("""
         SELECT ROUND(SUM(qty_fulfilled) * 100.0 / NULLIF(SUM(qty_ordered), 0), 2) AS fr
         FROM SC_ONTOLOGY.RAW.ORDER_LINES
-    """).collect()[0]['FR']
+    """, 'FR')
 
-    doi = session.sql("""
+    doi = safe_scalar("""
         SELECT ROUND(AVG(qty_on_hand) / NULLIF(AVG(avg_daily_demand), 0), 1) AS doi
         FROM SC_ONTOLOGY.RAW.INVENTORY
-    """).collect()[0]['DOI']
+    """, 'DOI')
 
-    freight = session.sql("""
+    freight = safe_scalar("""
         SELECT ROUND(AVG(freight_cost / NULLIF(qty_shipped, 0)), 2) AS fpu
         FROM SC_ONTOLOGY.RAW.SHIPMENTS
-    """).collect()[0]['FPU']
+    """, 'FPU')
 
     col1.metric("On-Time Delivery (OTD%)", f"{otd}%", delta="-47.05 vs 95% target", delta_color="inverse")
     col2.metric("Fill Rate", f"{fill_rate}%", delta="-31.34 vs 98% target", delta_color="inverse")
@@ -65,7 +224,7 @@ if page == "Executive Dashboard":
         WHERE o.actual_delivery_date IS NOT NULL
         GROUP BY p.plant_name, p.region ORDER BY otd_pct DESC
     """).to_pandas()
-    st.bar_chart(otd_plant.set_index('PLANT_NAME')['OTD_PCT'])
+    st.bar_chart(otd_plant.set_index('PLANT_NAME')['OTD_PCT'].astype(float))
 
     col_left, col_right = st.columns(2)
     with col_left:
@@ -93,6 +252,55 @@ if page == "Executive Dashboard":
         st.dataframe(inv_data, use_container_width=True)
 
 # ============================================================
+# PAGE: AGENT CHATBOT (streamed)
+# ============================================================
+elif page == "Agent Chatbot":
+    head_l, head_r = st.columns([5, 1])
+    head_l.header("Supply Chain Agent")
+    head_r.button("Clear chat", on_click=_clear_agent_chat, use_container_width=True)
+    st.caption(f"Streaming responses from Cortex Agent `{AGENT_FQN}`")
+
+    if "agent_chat" not in st.session_state:
+        st.session_state.agent_chat = []
+    chat = st.session_state.agent_chat
+
+    for i, msg in enumerate(chat):
+        with st.chat_message(msg["role"]):
+            if msg["text"]:
+                st.markdown(msg["text"])
+            if msg["role"] == "assistant":
+                render_agent_artifacts(msg, show_suggestions=(i == len(chat) - 1), key_prefix=f"m{i}")
+
+    if not chat:
+        st.markdown("**Try asking:**")
+        starter_cols = st.columns(len(AGENT_STARTERS))
+        for col, q in zip(starter_cols, AGENT_STARTERS):
+            col.button(q, on_click=_queue_agent_prompt, args=(q,), use_container_width=True)
+
+    typed_prompt = st.chat_input("Ask about OTD, suppliers, inventory, freight, policies...")
+    prompt = typed_prompt or st.session_state.pop("agent_pending_prompt", None)
+
+    if prompt:
+        # Send prior context as completed user/assistant text pairs only
+        api_messages = []
+        for user_msg, asst_msg in zip(chat[::2], chat[1::2]):
+            if user_msg["role"] == "user" and asst_msg["role"] == "assistant" and asst_msg["text"]:
+                api_messages += [
+                    {"role": "user", "content": [{"type": "text", "text": user_msg["text"]}]},
+                    {"role": "assistant", "content": [{"type": "text", "text": asst_msg["text"]}]},
+                ]
+        api_messages = api_messages[-AGENT_HISTORY_TURNS:]
+        api_messages.append({"role": "user", "content": [{"type": "text", "text": prompt}]})
+
+        chat.append({"role": "user", "text": prompt})
+        with st.chat_message("user"):
+            st.markdown(prompt)
+        with st.chat_message("assistant"):
+            reply = run_agent_streaming(api_messages)
+        chat.append({"role": "assistant", **reply})
+        st.rerun()
+
+# ============================================================
 # PAGE 2: AI INTELLIGENCE
 # ============================================================
 elif page == "AI Intelligence":
@@ -105,14 +313,24 @@ elif page == "AI Intelligence":
 
     with ai_tab1:
         st.subheader("AI Supplier Risk Assessment")
-        st.info("Uses CORTEX.COMPLETE to analyze supplier metrics + quality documents + country risk")
+        st.info("Uses CORTEX.COMPLETE (AI_SUPPLIER_SUMMARY) for the narrative + CALC_SUPPLIER_RISK for the risk scorecard")
         supplier_input = st.text_input("Enter supplier name:", "Quantum Plastics")
         if st.button("Generate AI Risk Report"):
             with st.spinner("Running AI analysis (CORTEX.COMPLETE)..."):
-                result = session.sql(f"""
-                    SELECT SC_ONTOLOGY.ADVANCED.SUPPLIER_RISK_ASSESSMENT('{supplier_input}') AS assessment
-                """).collect()[0]['ASSESSMENT']
-                st.markdown(result)
+                result = session.sql(
+                    "SELECT SC_ONTOLOGY.ADVANCED.AI_SUPPLIER_SUMMARY(?) AS assessment",
+                    params=[supplier_input],
+                ).collect()[0]['ASSESSMENT']
+                risk_scores = session.sql(
+                    "SELECT * FROM TABLE(SC_ONTOLOGY.ADVANCED.CALC_SUPPLIER_RISK(?)) ORDER BY risk_score DESC",
+                    params=[supplier_input],
+                ).to_pandas()
+            st.markdown(result)
+            st.subheader("Risk Scorecard")
+            if len(risk_scores) > 0:
+                st.dataframe(risk_scores, use_container_width=True)
+            else:
+                st.caption(f"No supplier records found matching '{supplier_input}'.")
 
     with ai_tab2:
         st.subheader("Document Sentiment & Classification")
@@ -136,10 +354,18 @@ elif page == "AI Intelligence":
         dest = col_d.selectbox("Destination Region", ["North America", "Europe", "Asia Pacific"])
         weather = col_w.selectbox("Weather Severity", ["Normal", "Moderate", "Severe", "Extreme"])
         if st.button("Predict Transit Delay"):
-            pred = session.sql(f"""
-                SELECT * FROM TABLE(SC_ONTOLOGY.ADVANCED.PREDICT_TRANSIT_DELAY('{origin}', '{dest}', '{weather}'))
-            """).to_pandas()
-            st.dataframe(pred, use_container_width=True)
+            try:
+                pred = session.sql(
+                    "SELECT * FROM TABLE(SC_ONTOLOGY.ADVANCED.PREDICT_TRANSIT_DELAY(?, ?, ?))",
+                    params=[origin, dest, weather],
+                ).to_pandas()
+                st.dataframe(pred, use_container_width=True)
+            except Exception as e:
+                if "Unknown user-defined" in str(e):
+                    st.warning("SC_ONTOLOGY.ADVANCED.PREDICT_TRANSIT_DELAY has not been created yet. "
+                               "Create the function to enable transit delay predictions.")
+                else:
+                    st.error(f"Prediction failed: {e}")
 
     with ai_tab4:
         st.subheader("AI Order Prioritization")
@@ -222,7 +448,6 @@ elif page == "Agent Monitoring & Traceability":
                     '{{"messages": [{{"role": "user", "content": [{{"type": "text", "text": "{agent_question}"}}]}}]}}'
                 ) AS resp
             """).collect()[0]['RESP']
-            import json
             try:
                 parsed = json.loads(response)
                 for item in parsed.get('content', []):
@@ -342,19 +567,19 @@ elif page == "Data Quality (DMFs)":
 
     col1, col2, col3 = st.columns(3)
 
-    neg_inv = session.sql("""
+    neg_inv = safe_scalar("""
         SELECT COUNT(*) AS cnt FROM SC_ONTOLOGY.RAW.INVENTORY WHERE qty_on_hand < 0
-    """).collect()[0]['CNT']
+    """, 'CNT')
 
-    null_dates = session.sql("""
+    null_dates = safe_scalar("""
         SELECT COUNT(*) AS cnt FROM SC_ONTOLOGY.RAW.ORDERS 
         WHERE status = 'Delivered' AND actual_delivery_date IS NULL
-    """).collect()[0]['CNT']
+    """, 'CNT')
 
-    low_fill = session.sql("""
+    low_fill = safe_scalar("""
         SELECT COUNT(*) AS cnt FROM SC_ONTOLOGY.RAW.ORDER_LINES 
         WHERE qty_ordered > 0 AND (qty_fulfilled * 1.0 / qty_ordered) < 0.5
-    """).collect()[0]['CNT']
+    """, 'CNT')
 
     col1.metric("Negative Inventory Records", neg_inv, delta="0 = healthy", delta_color="off")
     col2.metric("Delivered w/o Date", null_dates, delta="0 = healthy", delta_color="off")
@@ -388,7 +613,9 @@ elif page == "Alerts & Anomalies":
     alerts_data = session.sql("""
         SHOW ALERTS IN SCHEMA SC_ONTOLOGY.ADVANCED
     """).to_pandas()
-    st.dataframe(alerts_data[['name', 'schedule', 'state', 'condition', 'comment']] if 'name' in alerts_data.columns else alerts_data, use_container_width=True)
+    desired_cols = ['name', 'schedule', 'state', 'condition', 'comment']
+    available_cols = [c for c in desired_cols if c in alerts_data.columns]
+    st.dataframe(alerts_data[available_cols] if available_cols else alerts_data, use_container_width=True)
 
     st.divider()
 
@@ -414,7 +641,7 @@ elif page == "Alerts & Anomalies":
         ORDER BY delivery_date
     """).to_pandas()
     if len(ts_data) > 0:
-        st.line_chart(ts_data.set_index('DELIVERY_DATE')[['OTD_PCT', 'OTD_7DAY_AVG']])
+        st.line_chart(ts_data.set_index('DELIVERY_DATE')[['OTD_PCT', 'OTD_7DAY_AVG']].astype(float))
     else:
         st.caption("No time series data available in the last 90 days")
 
@@ -425,7 +652,7 @@ elif page == "Alerts & Anomalies":
     try:
         session.sql("CALL SC_ONTOLOGY.ADVANCED.ORDER_VOLUME_FORECAST!FORECAST(FORECASTING_PERIODS => 30)").collect()
         forecast_data = session.sql("SELECT * FROM TABLE(RESULT_SCAN(LAST_QUERY_ID()))").to_pandas()
-        st.line_chart(forecast_data.set_index('TS')['FORECAST'])
+        st.line_chart(forecast_data.set_index('TS')['FORECAST'].astype(float))
     except:
         st.caption("Forecast model available - run CALL ORDER_VOLUME_FORECAST!FORECAST(30) to generate predictions")
 
@@ -454,36 +681,22 @@ elif page == "Ontology Management":
     st.divider()
 
     st.subheader("Ontology Metrics Catalog")
-    metrics = session.sql("""
-        SELECT object_name AS metric, parent_entity AS entity, property, property_value
-        FROM TABLE(RESULT_SCAN(LAST_QUERY_ID()))
-        WHERE object_kind = 'METRIC'
-    """)
-    try:
-        metrics_df = session.sql("""
-            SELECT object_name AS metric_name, parent_entity AS entity, property_value AS expression
-            FROM TABLE(RESULT_SCAN(
-                (SELECT LAST_QUERY_ID() FROM TABLE(RESULT_SCAN(LAST_QUERY_ID())) LIMIT 0)
-            ))
-        """).to_pandas()
-        st.dataframe(metrics_df, use_container_width=True)
-    except:
-        metrics_static = session.sql("""
-            SELECT 'ON_TIME_DELIVERY_RATE' AS metric, 'ORDERS' AS entity, 'COUNT(on_time)/COUNT(delivered)*100' AS formula
-            UNION ALL SELECT 'FILL_RATE', 'ORDER_LINES', 'SUM(qty_fulfilled)/SUM(qty_ordered)*100'
-            UNION ALL SELECT 'DAYS_OF_INVENTORY', 'INVENTORY', 'AVG(qty_on_hand)/AVG(daily_demand)'
-            UNION ALL SELECT 'FREIGHT_COST_PER_UNIT', 'SHIPMENTS', 'AVG(freight_cost/qty_shipped)'
-            UNION ALL SELECT 'TOTAL_REVENUE', 'ORDER_LINES', 'SUM(qty_fulfilled*unit_price*(1-discount))'
-            UNION ALL SELECT 'TOTAL_ORDERS', 'ORDERS', 'COUNT(order_id)'
-            UNION ALL SELECT 'DELIVERED_ORDERS', 'ORDERS', 'COUNT(actual_delivery_date)'
-            UNION ALL SELECT 'TOTAL_SHIPMENTS', 'SHIPMENTS', 'COUNT(shipment_id)'
-            UNION ALL SELECT 'AVG_FREIGHT_COST', 'SHIPMENTS', 'AVG(freight_cost)'
-            UNION ALL SELECT 'TOTAL_FREIGHT_COST', 'SHIPMENTS', 'SUM(freight_cost)'
-            UNION ALL SELECT 'AVG_STOCK_ON_HAND', 'INVENTORY', 'AVG(qty_on_hand)'
-            UNION ALL SELECT 'AVG_ORDER_VALUE', 'ORDER_LINES', 'AVG(qty_ordered*unit_price)'
-            UNION ALL SELECT 'AVG_UNIT_COST', 'PARTS', 'AVG(unit_cost)'
-        """).to_pandas()
-        st.dataframe(metrics_static, use_container_width=True)
+    metrics_static = session.sql("""
+        SELECT 'ON_TIME_DELIVERY_RATE' AS metric, 'ORDERS' AS entity, 'COUNT(on_time)/COUNT(delivered)*100' AS formula
+        UNION ALL SELECT 'FILL_RATE', 'ORDER_LINES', 'SUM(qty_fulfilled)/SUM(qty_ordered)*100'
+        UNION ALL SELECT 'DAYS_OF_INVENTORY', 'INVENTORY', 'AVG(qty_on_hand)/AVG(daily_demand)'
+        UNION ALL SELECT 'FREIGHT_COST_PER_UNIT', 'SHIPMENTS', 'AVG(freight_cost/qty_shipped)'
+        UNION ALL SELECT 'TOTAL_REVENUE', 'ORDER_LINES', 'SUM(qty_fulfilled*unit_price*(1-discount))'
+        UNION ALL SELECT 'TOTAL_ORDERS', 'ORDERS', 'COUNT(order_id)'
+        UNION ALL SELECT 'DELIVERED_ORDERS', 'ORDERS', 'COUNT(actual_delivery_date)'
+        UNION ALL SELECT 'TOTAL_SHIPMENTS', 'SHIPMENTS', 'COUNT(shipment_id)'
+        UNION ALL SELECT 'AVG_FREIGHT_COST', 'SHIPMENTS', 'AVG(freight_cost)'
+        UNION ALL SELECT 'TOTAL_FREIGHT_COST', 'SHIPMENTS', 'SUM(freight_cost)'
+        UNION ALL SELECT 'AVG_STOCK_ON_HAND', 'INVENTORY', 'AVG(qty_on_hand)'
+        UNION ALL SELECT 'AVG_ORDER_VALUE', 'ORDER_LINES', 'AVG(qty_ordered*unit_price)'
+        UNION ALL SELECT 'AVG_UNIT_COST', 'PARTS', 'AVG(unit_cost)'
+    """).to_pandas()
+    st.dataframe(metrics_static, use_container_width=True)
 
     st.divider()
 
@@ -507,8 +720,13 @@ elif page == "Ontology Management":
 
     st.divider()
 
-    st.subheader("Country Risk Index (External Data)")
+    st.subheader("Country Risk Index")
     risk_data = session.sql("""
-        SELECT * FROM SC_ONTOLOGY.ADVANCED.COUNTRY_RISK_INDEX ORDER BY risk_index DESC
+        SELECT country, risk_index, climate_risk, geopolitical_risk, logistics_reliability, last_updated
+        FROM SC_ONTOLOGY.ADVANCED.COUNTRY_RISK_INDEX
+        ORDER BY risk_index DESC
     """).to_pandas()
-    st.dataframe(risk_data, use_container_width=True)
+    if len(risk_data) > 0:
+        st.dataframe(risk_data, use_container_width=True)
+    else:
+        st.caption("No country risk data available yet.")
